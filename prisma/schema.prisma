@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String @id @default(uuid())
+  name     String
+  email    String @unique
+  password String
+
+  tickets   Ticket[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Payment Payment[]
+}
+
+model Venue {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  city      String
+  timezone  String
+  capacity  Int
+  events    Event[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  startTime   DateTime
+  endTime     DateTime // Corrected to match camelCase naming
+  venueId     String
+  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  totalCapacity   Int
+  premiumCapacity Int
+  goldCapacity    Int
+  normalCapacity  Int
+
+  allowPremium Boolean      @default(true)
+  allowGold    Boolean      @default(true)
+  allowNormal  Boolean      @default(true)
+  ticketTypes  TicketType[]
+  tickets      Ticket[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  Organizer   Organizer? @relation(fields: [organizerId], references: [id])
+  organizerId String?
+  Payment     Payment[]
+
+  @@unique([venueId, startTime, endTime])
+}
+
+model TicketType {
+  id        String   @id @default(cuid())
+  name      String // 'premium', 'gold', 'normal'
+  price     Float // Price for each ticket type
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets   Ticket[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Ticket {
+  id           String       @id @default(cuid())
+  qrCode       String       @unique
+  seatNumber   String? // Optional if the event allows open seating
+  status       TicketStatus @default(UNSOLD) // Tracks ticket state: UNSOLD, SOLD, SCANNED
+  userId       String?
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId      String
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketTypeId String
+  ticketType   TicketType   @relation(fields: [ticketTypeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  Payment Payment[]
+}
+
+model Organizer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  events    Event[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId       String
+  event         Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  amount        Float
+  paymentDate   DateTime      @default(now())
+  paymentStatus PaymentStatus
+  transactionId String        @unique
+  tickets       Ticket[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+enum TicketStatus {
+  UNSOLD
+  SOLD
+  SCANNED
+}
